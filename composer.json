@@ -1,0 +1,45 @@
+{
+  "name": "peibin/laravel-kafka",
+  "description": "Peibin kafka component for Laravel.",
+  "license": "MIT",
+  "keywords": [
+    "php",
+    "laravel",
+    "kafka"
+  ],
+  "authors": [
+    {
+      "name": "Peibin Zhu",
+      "email": "zhupeibin1207@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=8.0",
+    "longlang/phpkafka": "^1.2.1",
+    "peibin/laravel-context": "^1.0",
+    "peibin/laravel-di": "^1.5",
+    "peibin/laravel-process": "^1.2",
+    "peibin/laravel-utils": "^1.6"
+  },
+  "autoload": {
+    "psr-4": {
+      "PeibinLaravel\\Kafka\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "PeibinLaravelTest\\Kafka\\": "tests/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "PeibinLaravel\\Kafka\\KafkaServiceProvider"
+      ]
+    }
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "prefer-stable": true
+}
