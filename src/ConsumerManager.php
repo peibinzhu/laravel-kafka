@@ -145,7 +145,7 @@ class ConsumerManager
                 if (!$config['bootstrap_servers'] && $this->config->get('config_center.enable', false)) {
                     sleep(1);
 
-                    $this->getConsumerConfig();
+                    return $this->getConsumerConfig();
                 }
 
                 $config = $this->config->get($key);
