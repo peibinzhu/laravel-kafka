@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace PeibinLaravel\Kafka;
 
 use Illuminate\Support\ServiceProvider;
+use longlang\phpkafka\Consumer\Consumer as LongLangConsumer;
+use PeibinLaravel\Kafka\Consumer\RdKafkaConsumer;
 use PeibinLaravel\Kafka\Listeners\AfterWorkerExitListener;
 use PeibinLaravel\Kafka\Listeners\BeforeMainServerStartListener;
 use PeibinLaravel\SwooleEvent\Events\BeforeMainServerStart;
@@ -18,7 +20,10 @@ class KafkaServiceProvider extends ServiceProvider
     public function __invoke(): array
     {
         return [
-            'listeners' => [
+            'dependencies' => [
+                LongLangConsumer::class => RdKafkaConsumer::class,
+            ],
+            'listeners'    => [
                 BeforeMainServerStart::class => [
                     BeforeMainServerStartListener::class => 99,
                 ],
@@ -26,7 +31,7 @@ class KafkaServiceProvider extends ServiceProvider
                     AfterWorkerExitListener::class,
                 ],
             ],
-            'publish'   => [
+            'publish'      => [
                 [
                     'id'          => 'kafka',
                     'source'      => __DIR__ . '/../config/kafka.php',

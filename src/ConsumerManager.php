@@ -86,37 +86,39 @@ class ConsumerManager
             {
                 $consumerConfig = $this->getConsumerConfig();
                 $consumer = $this->consumer;
-                $longLangConsumer = new LongLangConsumer(
-                    $consumerConfig,
-                    function (ConsumeMessage $message) use ($consumer, $consumerConfig) {
-                        $this->dispatcher && $this->dispatcher->dispatch(new BeforeConsume($consumer, $message));
+                $consumeCallback = function (ConsumeMessage $message) use ($consumer, $consumerConfig) {
+                    $this->dispatcher && $this->dispatcher->dispatch(new BeforeConsume($consumer, $message));
 
-                        $result = $consumer->consume($message);
+                    $result = $consumer->consume($message);
 
-                        if (!$consumerConfig->getAutoCommit()) {
-                            if (!is_string($result)) {
-                                throw new InvalidConsumeResultException('The result is invalid.');
-                            }
-
-                            if ($result === Result::ACK) {
-                                $message->getConsumer()->ack($message);
-                            }
-
-                            if ($result === Result::REQUEUE) {
-                                $this->producer->send(
-                                    $message->getTopic(),
-                                    $message->getValue(),
-                                    $message->getKey(),
-                                    $message->getHeaders()
-                                );
-                            }
+                    if (!$consumerConfig->getAutoCommit()) {
+                        if (!is_string($result)) {
+                            throw new InvalidConsumeResultException('The result is invalid.');
                         }
 
-                        $this->dispatcher && $this->dispatcher->dispatch(
-                            new AfterConsume($consumer, $message, $result)
-                        );
+                        if ($result === Result::ACK) {
+                            $message->getConsumer()->ack($message);
+                        }
+
+                        if ($result === Result::REQUEUE) {
+                            $this->producer->send(
+                                $message->getTopic(),
+                                $message->getValue(),
+                                $message->getKey(),
+                                $message->getHeaders()
+                            );
+                        }
                     }
-                );
+
+                    $this->dispatcher && $this->dispatcher->dispatch(
+                        new AfterConsume($consumer, $message, $result)
+                    );
+                };
+
+                $longLangConsumer = $this->container->make(LongLangConsumer::class, [
+                    'config'          => $consumerConfig,
+                    'consumeCallback' => $consumeCallback,
+                ]);
 
                 retry(
                     3,
@@ -143,7 +145,7 @@ class ConsumerManager
                 // If "bootstrap_servers" is not configured and the configuration center is enabled,
                 // it will wait in a loop until "bootstrap_servers" are obtained
                 if (!$config['bootstrap_servers'] && $this->config->get('config_center.enable', false)) {
-                    sleep(1);
+                    usleep(100 * 1000);
 
                     return $this->getConsumerConfig();
                 }
