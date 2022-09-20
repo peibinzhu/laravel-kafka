@@ -9,14 +9,23 @@ use longlang\phpkafka\Producer\ProduceMessage;
 use longlang\phpkafka\Producer\Producer as LongLangProducer;
 use longlang\phpkafka\Producer\ProducerConfig;
 use longlang\phpkafka\Socket\SwooleSocket;
-use PeibinLaravel\Context\Context;
+use PeibinLaravel\Coordinator\Channel;
+use PeibinLaravel\Kafka\Exceptions\ConnectionClosedException;
+use PeibinLaravel\Kafka\Exceptions\TimeoutException;
+use Swoole\Coroutine;
+use Throwable;
 
 class Producer
 {
-    private ?LongLangProducer $producer;
+    protected ?Channel $chan = null;
 
-    public function __construct(protected Repository $config, protected string $name = 'default')
-    {
+    private ?LongLangProducer $producer = null;
+
+    public function __construct(
+        protected Repository $config,
+        protected string $name = 'default',
+        protected int $timeout = 10
+    ) {
     }
 
     /**
@@ -34,8 +43,27 @@ class Producer
         array $headers = [],
         ?int $partitionIndex = null
     ): void {
-        $this->connection();
-        $this->producer->send($topic, $value, $key, $headers, $partitionIndex);
+        $this->loop();
+        $ack = new Channel(1);
+        $chan = $this->chan;
+        $chan->push(function () use ($topic, $key, $value, $headers, $partitionIndex, $ack) {
+            try {
+                $this->producer->send($topic, $value, $key, $headers, $partitionIndex);
+                $ack->close();
+            } catch (Throwable $e) {
+                $ack->push($e);
+                throw $e;
+            }
+        });
+        if ($chan->isClosing()) {
+            throw new ConnectionClosedException('Connection closed.');
+        }
+        if ($e = $ack->pop($this->timeout)) {
+            throw $e;
+        }
+        if ($ack->isTimeout()) {
+            throw new TimeoutException('Kafka send timeout.');
+        }
     }
 
     /**
@@ -44,8 +72,27 @@ class Producer
      */
     public function sendBatch(array $messages): void
     {
-        $this->connection();
-        $this->producer->sendBatch($messages);
+        $this->loop();
+        $ack = new Channel(1);
+        $chan = $this->chan;
+        $chan->push(function () use ($messages, $ack) {
+            try {
+                $this->producer->sendBatch($messages);
+                $ack->close();
+            } catch (Throwable $e) {
+                $ack->push($e);
+                throw $e;
+            }
+        });
+        if ($chan->isClosing()) {
+            throw new ConnectionClosedException('Connection closed.');
+        }
+        if ($e = $ack->pop()) {
+            throw $e;
+        }
+        if ($ack->isTimeout()) {
+            throw new TimeoutException('Kafka send timeout.');
+        }
     }
 
     public function close(): void
@@ -53,20 +100,33 @@ class Producer
         $this->producer?->close();
     }
 
-    private function connection(): void
+    protected function loop(): void
     {
-        $connections = [];
-        if (Context::has('kafka')) {
-            $connections = Context::get('kafka');
-        }
-
-        if (isset($connections[$this->name])) {
-            $this->producer = $connections[$this->name];
+        if ($this->chan != null) {
             return;
         }
 
-        $this->producer = $connections[$this->name] = $this->makeProducer();
-        Context::set('kafka', $connections);
+        $this->chan = new Channel(1);
+        Coroutine::create(function () {
+            while (true) {
+                $this->producer = $this->makeProducer();
+                while (true) {
+                    $closure = $this->chan->pop();
+                    if (!$closure) {
+                        break 2;
+                    }
+                    try {
+                        $closure->call($this);
+                    } catch (Throwable) {
+                        $this->producer->close();
+                        break;
+                    }
+                }
+            }
+
+            $this->chan->close();
+            $this->chan = null;
+        });
     }
 
     private function makeProducer(): LongLangProducer

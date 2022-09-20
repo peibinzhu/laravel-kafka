@@ -17,6 +17,7 @@
     "php": ">=8.0",
     "longlang/phpkafka": "^1.2.1",
     "peibin/laravel-context": "^1.0",
+    "peibin/laravel-coordinator": "^1.0",
     "peibin/laravel-di": "^1.5",
     "peibin/laravel-process": "^1.2",
     "peibin/laravel-utils": "^1.6"
