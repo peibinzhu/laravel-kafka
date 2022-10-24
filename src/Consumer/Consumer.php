@@ -65,11 +65,11 @@ class Consumer implements ConsumerInterface
         $consumer = $this->consumer = new KafkaConsumer($conf);
         $consumer->subscribe($this->config->getTopic());
 
-        $interval = (int)($this->config->getInterval() * 1000000);
+        $pollTime = $this->config->getPollTime();
 
         $this->started = true;
         while ($this->started) {
-            $message = $consumer->consume(5 * 1000);
+            $message = $consumer->consume($pollTime * 1000);
             switch ($message->err) {
                 case RD_KAFKA_RESP_ERR_NO_ERROR:
                     $this->messages[] = $message;
@@ -77,8 +77,6 @@ class Consumer implements ConsumerInterface
                     $consumeCallback($message);
                     break;
                 case RD_KAFKA_RESP_ERR__PARTITION_EOF:
-                    $interval > 0 && usleep($interval);
-                    break;
                 case RD_KAFKA_RESP_ERR__TIMED_OUT:
                     break;
                 default:
@@ -108,7 +106,9 @@ class Consumer implements ConsumerInterface
                 $message->partition,
                 $message->key,
                 $message->payload,
-                $headers
+                $headers,
+                $message->offset,
+                $message
             );
         }
         return $message;
@@ -116,5 +116,6 @@ class Consumer implements ConsumerInterface
 
     public function ack(ConsumeMessage $message)
     {
+        $this->consumer->commitAsync($message->getOriginMessage());
     }
 }

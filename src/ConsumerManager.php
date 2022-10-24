@@ -44,7 +44,6 @@ class ConsumerManager
             $annotation->pool && $instance->setPool($annotation->pool);
             $annotation->topic && $instance->setTopic($annotation->topic);
             $annotation->groupId && $instance->setGroupId($annotation->groupId);
-            $annotation->memberId && $instance->setMemberId($annotation->memberId);
             $instance->setAutoCommit($annotation->autoCommit);
 
             $process = $this->createProcess($instance);
@@ -158,7 +157,8 @@ class ConsumerManager
                 $consumerConfig->setBootstrapServer($config['bootstrap_servers']);
                 $consumerConfig->setTopic($this->consumer->getTopic());
                 $consumerConfig->setGroupId($this->consumer->getGroupId() ?? uniqid('laravel-kafka-'));
-                $consumerConfig->setInterval($config['interval']);
+                $consumerConfig->setAutoCommit($this->consumer->isAutoCommit());
+                $consumerConfig->setPollTime($config['consumer_poll_time']);
                 return $consumerConfig;
             }
         };

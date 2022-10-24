@@ -61,8 +61,14 @@ class CommonConfig
     public function setGlobalOptions(array $globalOptions): static
     {
         foreach ($globalOptions as $name => $value) {
-            $this->globalOptions[(string)$name] = $this->converValueToStringValue($value);
+            $this->globalOptions[(string)$name] = $this->transformConfValue($value);
         }
+        return $this;
+    }
+
+    public function setGlobalOption(string $name, mixed $value): static
+    {
+        $this->globalOptions[$name] = $this->transformConfValue($value);
         return $this;
     }
 
@@ -74,12 +80,18 @@ class CommonConfig
     public function setTopicOptions(array $topicOptions): static
     {
         foreach ($topicOptions as $name => $value) {
-            $this->topicOptions[(string)$name] = $this->converValueToStringValue($value);
+            $this->topicOptions[(string)$name] = $this->transformConfValue($value);
         }
         return $this;
     }
 
-    private function converValueToStringValue($value): string
+    public function setTopicOption(string $name, mixed $value): static
+    {
+        $this->topicOptions[$name] = $this->transformConfValue($value);
+        return $this;
+    }
+
+    private function transformConfValue($value): string
     {
         return is_bool($value)
             ? ($value === true ? 'true' : 'false')

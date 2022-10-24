@@ -5,9 +5,8 @@ declare(strict_types=1);
 return [
     'default' => [
         'bootstrap_servers'      => [],
-        // 未获取消息到消息时，延迟多少秒再次尝试（单位：秒，支持小数）
-        'interval'               => 1.5,
-        // rdkakfa配置
+        // 消费者拉取数据时间（单位：秒，支持小数）
+        'consumer_poll_time'     => 30,
         'common_options'         => [
             'api.version.request' => true,
             'log_level'           => LOG_WARNING,

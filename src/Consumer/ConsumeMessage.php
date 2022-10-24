@@ -6,38 +6,19 @@ namespace PeibinLaravel\Kafka\Consumer;
 
 class ConsumeMessage
 {
-    protected Consumer $consumer;
-
-    protected string $topic;
-
-    protected int $partition;
-
-    protected ?string $key;
-
-    protected ?string $value;
-
-    /**
-     * @var RecordHeader[]
-     */
-    protected array $headers;
-
     /**
      * @param RecordHeader[] $headers
      */
     public function __construct(
-        Consumer $consumer,
-        string $topic,
-        int $partition,
-        ?string $key,
-        ?string $value,
-        array $headers
+        protected Consumer $consumer,
+        protected string $topic,
+        protected int $partition,
+        protected ?string $key,
+        protected ?string $value,
+        protected array $headers,
+        protected int $offset,
+        protected mixed $originMessage = null
     ) {
-        $this->consumer = $consumer;
-        $this->topic = $topic;
-        $this->partition = $partition;
-        $this->key = $key;
-        $this->value = $value;
-        $this->headers = $headers;
     }
 
     public function getConsumer(): Consumer
@@ -48,7 +29,6 @@ class ConsumeMessage
     public function setConsumer(Consumer $consumer): self
     {
         $this->consumer = $consumer;
-
         return $this;
     }
 
@@ -60,7 +40,6 @@ class ConsumeMessage
     public function setTopic(string $topic): self
     {
         $this->topic = $topic;
-
         return $this;
     }
 
@@ -72,7 +51,6 @@ class ConsumeMessage
     public function setPartition(int $partition): self
     {
         $this->partition = $partition;
-
         return $this;
     }
 
@@ -84,7 +62,6 @@ class ConsumeMessage
     public function setKey(?string $key): self
     {
         $this->key = $key;
-
         return $this;
     }
 
@@ -96,7 +73,6 @@ class ConsumeMessage
     public function setValue(?string $value): self
     {
         $this->value = $value;
-
         return $this;
     }
 
@@ -114,7 +90,28 @@ class ConsumeMessage
     public function setHeaders(array $headers): self
     {
         $this->headers = $headers;
+        return $this;
+    }
 
+    public function getOffset(): int
+    {
+        return $this->offset;
+    }
+
+    public function setOffset(int $offset): self
+    {
+        $this->offset = $offset;
+        return $this;
+    }
+
+    public function getOriginMessage(): mixed
+    {
+        return $this->originMessage;
+    }
+
+    public function setOriginMessage(mixed $originMessage): self
+    {
+        $this->originMessage = $originMessage;
         return $this;
     }
 }

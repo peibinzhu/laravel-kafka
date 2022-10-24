@@ -8,47 +8,16 @@ use PeibinLaravel\Kafka\Config\CommonConfig;
 
 class ConsumerConfig extends CommonConfig
 {
-    /**
-     * @var string|string[]|null
-     */
-    protected $brokers;
-
-    /**
-     * @var float|null
-     */
-    protected $interval = 0;
-
-    /**
-     * @var string
-     */
-    protected $groupId = '';
+    protected string $groupId = '';
 
     /**
      * @var string[]
      */
-    protected $topic;
+    protected array $topic;
 
-    /**
-     * @var bool
-     */
-    protected $autoCommit = true;
-
-    /**
-     * @var bool
-     */
-    protected $autoCreateTopic = true;
-
-    public function getInterval(): ?float
-    {
-        return $this->interval;
-    }
-
-    public function setInterval(float $interval): self
-    {
-        $this->interval = $interval;
-
-        return $this;
-    }
+    protected bool $autoCommit = true;
+    
+    protected int | float $pollTime = 10;
 
     public function getGroupId(): string
     {
@@ -58,7 +27,7 @@ class ConsumerConfig extends CommonConfig
     public function setGroupId(string $groupId): self
     {
         $this->groupId = $groupId;
-
+        $this->setGlobalOption('group.id', $groupId);
         return $this;
     }
 
@@ -73,29 +42,9 @@ class ConsumerConfig extends CommonConfig
     /**
      * @param string|string[] $topic
      */
-    public function setTopic($topic): self
+    public function setTopic(array | string $topic): self
     {
         $this->topic = (array)$topic;
-
-        return $this;
-    }
-
-    /**
-     * @return string|string[]
-     */
-    public function getBrokers()
-    {
-        return $this->brokers;
-    }
-
-    /**
-     * @param string|string[] $brokers
-     *
-     * @return $this
-     */
-    public function setBrokers($brokers): self
-    {
-        $this->brokers = $brokers;
 
         return $this;
     }
@@ -108,19 +57,18 @@ class ConsumerConfig extends CommonConfig
     public function setAutoCommit(bool $autoCommit): self
     {
         $this->autoCommit = $autoCommit;
-
+        $this->setGlobalOption('enable.auto.commit', $autoCommit);
         return $this;
     }
 
-    public function getAutoCreateTopic(): bool
+    public function getPollTime(): float | int
     {
-        return $this->autoCreateTopic;
+        return $this->pollTime;
     }
 
-    public function setAutoCreateTopic(bool $autoCreateTopic): self
+    public function setPollTime(float | int $pollTime): ConsumerConfig
     {
-        $this->autoCreateTopic = $autoCreateTopic;
-
+        $this->pollTime = $pollTime;
         return $this;
     }
 }

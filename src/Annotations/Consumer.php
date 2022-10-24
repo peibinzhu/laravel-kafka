@@ -14,7 +14,6 @@ class Consumer extends AbstractAnnotation
      * @param string       $pool
      * @param array|string $topic
      * @param string|null  $groupId
-     * @param string|null  $memberId
      * @param bool         $autoCommit
      * @param int          $nums
      * @param bool         $enable
@@ -23,7 +22,6 @@ class Consumer extends AbstractAnnotation
         public string $pool = 'default',
         public array | string $topic = '',
         public ?string $groupId = null,
-        public ?string $memberId = null,
         public bool $autoCommit = true,
         public int $nums = 1,
         public bool $enable = true
