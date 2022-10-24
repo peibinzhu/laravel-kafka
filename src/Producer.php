@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace PeibinLaravel\Kafka;
 
 use Illuminate\Config\Repository;
-use longlang\phpkafka\Producer\ProduceMessage;
-use longlang\phpkafka\Producer\Producer as LongLangProducer;
-use longlang\phpkafka\Producer\ProducerConfig;
-use longlang\phpkafka\Socket\SwooleSocket;
+use Illuminate\Container\Container;
 use PeibinLaravel\Coordinator\Channel;
+use PeibinLaravel\Kafka\Contracts\ProducerInterface;
 use PeibinLaravel\Kafka\Exceptions\ConnectionClosedException;
 use PeibinLaravel\Kafka\Exceptions\TimeoutException;
+use PeibinLaravel\Kafka\Producer\ProduceMessage;
+use PeibinLaravel\Kafka\Producer\ProducerConfig;
 use Swoole\Coroutine;
 use Throwable;
 
@@ -19,7 +19,7 @@ class Producer
 {
     protected ?Channel $chan = null;
 
-    private ?LongLangProducer $producer = null;
+    private ?ProducerInterface $producer = null;
 
     public function __construct(
         protected Repository $config,
@@ -129,25 +129,16 @@ class Producer
         });
     }
 
-    private function makeProducer(): LongLangProducer
+    private function makeProducer(): ProducerInterface
     {
         $config = $this->config->get('kafka.' . $this->name);
-
         $producerConfig = new ProducerConfig();
-        $producerConfig->setConnectTimeout($config['connect_timeout']);
-        $producerConfig->setSendTimeout($config['send_timeout']);
-        $producerConfig->setRecvTimeout($config['recv_timeout']);
-        $producerConfig->setClientId($config['client_id']);
-        $producerConfig->setMaxWriteAttempts($config['max_write_attempts']);
-        $producerConfig->setSocket(SwooleSocket::class);
+        $commonOptions = $config['common_options'] ?? [];
+        $producerOptions = $config['producer_options'] ?? [];
+        $producerConfig->setGlobalOptions(array_merge($commonOptions, $producerOptions));
+        $producerConfig->setTopicOptions($config['producer_topic_options'] ?? []);
         $producerConfig->setBootstrapServers($config['bootstrap_servers']);
-        $producerConfig->setAcks($config['acks']);
-        $producerConfig->setProducerId($config['producer_id']);
-        $producerConfig->setProducerEpoch($config['producer_epoch']);
-        $producerConfig->setPartitionLeaderEpoch($config['partition_leader_epoch']);
-        $producerConfig->setAutoCreateTopic($config['auto_create_topic']);
-        !empty($config['sasl']) && $producerConfig->setSasl($config['sasl']);
-        !empty($config['ssl']) && $producerConfig->setSsl($config['ssl']);
-        return new LongLangProducer($producerConfig);
+        $producerConfig->setAcks($config['acks'] ?? ($config['producer_options']['acks'] ?? 0));
+        return Container::getInstance()->make(ProducerInterface::class, ['config' => $producerConfig]);
     }
 }

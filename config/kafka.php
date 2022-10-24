@@ -2,42 +2,33 @@
 
 declare(strict_types=1);
 
-use PeibinLaravel\Kafka\Constants\KafkaStrategy;
-
 return [
     'default' => [
-        'connect_timeout'        => -1,
-        'send_timeout'           => -1,
-        'recv_timeout'           => -1,
-        'client_id'              => '',
-        'max_write_attempts'     => 3,
-        'bootstrap_servers'      => [
-            '127.0.0.1:9092',
+        'bootstrap_servers'      => [],
+        // 未获取消息到消息时，延迟多少秒再次尝试（单位：秒，支持小数）
+        'interval'               => 1.5,
+        // rdkakfa配置
+        'common_options'         => [
+            'api.version.request' => true,
+            'log_level'           => LOG_WARNING,
         ],
-        'acks'                   => -1,
-        'producer_id'            => -1,
-        'producer_epoch'         => -1,
-        'partition_leader_epoch' => -1,
-        'interval'               => 0,
-        'session_timeout'        => 60,
-        'rebalance_timeout'      => 60,
-        'replica_id'             => -1,
-        'rack_id'                => '',
-        'group_retry'            => 5,
-        'group_retry_sleep'      => 1,
-        'group_heartbeat'        => 3,
-        'offset_retry'           => 5,
-        'auto_create_topic'      => true,
-        'partition_assignment_strategy' => KafkaStrategy::RANGE_ASSIGNOR,
-        'sasl'                   => [],
-        'ssl'                    => [],
-        'pool'                   => [
-            'min_connections' => 1,
-            'max_connections' => 10,
-            'connect_timeout' => 10.0,
-            'wait_timeout'    => 3.0,
-            'heartbeat'       => -1,
-            'max_idle_time'   => 60.0,
+        'producer_options'       => [
+            'retries'           => 3,
+            'retry.backoff.ms'  => 1000,
+            'message.max.bytes' => 1000000,
+            'linger.ms'         => 10,
+            // 生产者要求领导者，在确认请求完成之前已收到的确认数值。允许的值：0 表示无确认，1 表示仅领导者，-1 表示完整的 ISR。
+            'acks'              => 1,
         ],
+        'producer_topic_options' => [],
+        'consumer_options'       => [
+            'auto.offset.reset'         => 'latest',
+            'enable.partition.eof'      => true,
+            'heartbeat.interval.ms'     => 3000,
+            'session.timeout.ms'        => 30000,
+            'fetch.max.bytes'           => 1024000,
+            'max.partition.fetch.bytes' => 256000,
+        ],
+        'consumer_topic_options' => [],
     ],
 ];

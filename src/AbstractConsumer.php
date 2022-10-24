@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace PeibinLaravel\Kafka;
 
-use longlang\phpkafka\Consumer\ConsumeMessage;
+use PeibinLaravel\Kafka\Consumer\ConsumeMessage;
 
 abstract class AbstractConsumer
 {

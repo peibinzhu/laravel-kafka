@@ -7,19 +7,17 @@ namespace PeibinLaravel\Kafka;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Events\Dispatcher;
-use longlang\phpkafka\Client\SwooleClient;
-use longlang\phpkafka\Consumer\ConsumeMessage;
-use longlang\phpkafka\Consumer\Consumer as LongLangConsumer;
-use longlang\phpkafka\Consumer\ConsumerConfig;
-use longlang\phpkafka\Exception\KafkaErrorException;
-use longlang\phpkafka\Socket\SwooleSocket;
 use PeibinLaravel\Contracts\StdoutLoggerInterface;
 use PeibinLaravel\Di\Annotation\AnnotationCollector;
 use PeibinLaravel\Kafka\Annotations\Consumer as ConsumerAnnotation;
+use PeibinLaravel\Kafka\Consumer\ConsumeMessage;
+use PeibinLaravel\Kafka\Consumer\Consumer;
+use PeibinLaravel\Kafka\Consumer\ConsumerConfig;
 use PeibinLaravel\Kafka\Events\AfterConsume;
 use PeibinLaravel\Kafka\Events\BeforeConsume;
 use PeibinLaravel\Kafka\Events\FailToConsume;
 use PeibinLaravel\Kafka\Exceptions\InvalidConsumeResultException;
+use PeibinLaravel\Kafka\Exceptions\KafkaException;
 use PeibinLaravel\Process\AbstractProcess;
 use PeibinLaravel\Process\ProcessManager;
 
@@ -115,7 +113,7 @@ class ConsumerManager
                     );
                 };
 
-                $longLangConsumer = $this->container->make(LongLangConsumer::class, [
+                $longLangConsumer = $this->container->make(Consumer::class, [
                     'config'          => $consumerConfig,
                     'consumeCallback' => $consumeCallback,
                 ]);
@@ -125,7 +123,7 @@ class ConsumerManager
                     function () use ($longLangConsumer) {
                         try {
                             $longLangConsumer->start();
-                        } catch (KafkaErrorException $exception) {
+                        } catch (KafkaException $exception) {
                             $this->stdoutLogger->error($exception->getMessage());
 
                             $this->dispatcher && $this->dispatcher->dispatch(
@@ -153,32 +151,14 @@ class ConsumerManager
                 $config = $this->config->get($key);
 
                 $consumerConfig = new ConsumerConfig();
-                $consumerConfig->setAutoCommit($this->consumer->isAutoCommit());
-                $consumerConfig->setRackId($config['rack_id']);
-                $consumerConfig->setReplicaId($config['replica_id']);
+                $commonOptions = $config['common_options'] ?? [];
+                $consumerOptions = $config['consumer_options'] ?? [];
+                $consumerConfig->setGlobalOptions(array_merge($commonOptions, $consumerOptions));
+                $consumerConfig->setTopicOptions($config['consumer_topic_options'] ?? []);
+                $consumerConfig->setBootstrapServer($config['bootstrap_servers']);
                 $consumerConfig->setTopic($this->consumer->getTopic());
-                $consumerConfig->setRebalanceTimeout($config['rebalance_timeout']);
-                $consumerConfig->setSendTimeout($config['send_timeout']);
                 $consumerConfig->setGroupId($this->consumer->getGroupId() ?? uniqid('laravel-kafka-'));
-                $consumerConfig->setGroupInstanceId(sprintf('%s-%s', $this->consumer->getGroupId(), uniqid()));
-                $consumerConfig->setMemberId($this->consumer->getMemberId() ?: '');
                 $consumerConfig->setInterval($config['interval']);
-                $consumerConfig->setBootstrapServers($config['bootstrap_servers']);
-                $consumerConfig->setSocket(SwooleSocket::class);
-                $consumerConfig->setClient(SwooleClient::class);
-                $consumerConfig->setMaxWriteAttempts($config['max_write_attempts']);
-                $consumerConfig->setClientId(sprintf('%s-%s', $config['client_id'] ?: 'Laravel', uniqid()));
-                $consumerConfig->setRecvTimeout($config['recv_timeout']);
-                $consumerConfig->setConnectTimeout($config['connect_timeout']);
-                $consumerConfig->setSessionTimeout($config['session_timeout']);
-                $consumerConfig->setGroupRetry($config['group_retry']);
-                $consumerConfig->setGroupRetrySleep($config['group_retry_sleep']);
-                $consumerConfig->setGroupHeartbeat($config['group_heartbeat']);
-                $consumerConfig->setOffsetRetry($config['offset_retry']);
-                $consumerConfig->setAutoCreateTopic($config['auto_create_topic']);
-                $consumerConfig->setPartitionAssignmentStrategy($config['partition_assignment_strategy']);
-                !empty($config['sasl']) && $consumerConfig->setSasl($config['sasl']);
-                !empty($config['ssl']) && $consumerConfig->setSsl($config['ssl']);
                 return $consumerConfig;
             }
         };

@@ -6,30 +6,30 @@ namespace PeibinLaravel\Kafka\Consumer;
 
 use BadFunctionCallException;
 use InvalidArgumentException;
-use longlang\phpkafka\Consumer\Assignor\RangeAssignor;
-use longlang\phpkafka\Consumer\ConsumeMessage;
-use longlang\phpkafka\Consumer\Consumer as LongLangConsumer;
-use longlang\phpkafka\Consumer\ConsumerConfig;
-use longlang\phpkafka\Exception\KafkaErrorException;
-use longlang\phpkafka\Protocol\RecordBatch\RecordHeader;
-use longlang\phpkafka\Sasl\SaslInterface;
+use PeibinLaravel\Kafka\Contracts\ConsumerInterface;
 use PeibinLaravel\Kafka\Exceptions\KafkaException;
 use RdKafka\Conf;
+use RdKafka\Exception;
 use RdKafka\KafkaConsumer;
 use RdKafka\Message;
-use RdKafka\TopicConf;
 
-class RdKafkaConsumer extends LongLangConsumer
+class Consumer implements ConsumerInterface
 {
     /**
      * @var ConsumeMessage[]
      */
-    private $messages = [];
+    private array $messages = [];
+
+    private bool $started = false;
+
+    private ConsumerConfig $config;
 
     /**
-     * @var bool
+     * @var callable|null
      */
-    private $started = false;
+    private $consumeCallback;
+
+    private KafkaConsumer $consumer;
 
     public function __construct(ConsumerConfig $config, ?callable $consumeCallback = null)
     {
@@ -41,10 +41,13 @@ class RdKafkaConsumer extends LongLangConsumer
         $this->consumeCallback = $consumeCallback;
     }
 
+    /**
+     * @throws Exception
+     */
     public function start(): void
     {
         $consumeCallback = $this->consumeCallback;
-        if (null === $consumeCallback) {
+        if ($consumeCallback === null) {
             throw new InvalidArgumentException('consumeCallback must not null');
         }
 
@@ -53,37 +56,20 @@ class RdKafkaConsumer extends LongLangConsumer
         }
 
         $conf = new Conf();
-
-        if ($sasl = $this->getSaslInfo()) {
-            $conf->set('sasl.mechanisms', $sasl['mechanisms']);
-            $conf->set('sasl.username', $sasl['username']);
-            $conf->set('sasl.password', $sasl['password']);
+        foreach ($this->config->getGlobalOptions() as $name => $value) {
+            $conf->set($name, $value);
         }
 
-        $ssl = $this->config->getSsl();
-        if ($ssl->getOpen()) {
-            $conf->set('security.protocol', 'SASL_SSL');
-            $conf->set('ssl.ca.location', $ssl->getCertFile());
-        }
-
-        $strategyClass = $this->config->getPartitionAssignmentStrategy();
-        $strategy = $strategyClass == RangeAssignor::class ? 'range' : 'roundrobin';
-        $conf->set('partition.assignment.strategy', $strategy);
-
-        $conf->set('api.version.request', 'true');
         $conf->set('group.id', $this->config->getGroupId());
-        $conf->set('metadata.broker.list', implode(',', $this->config->getBootstrapServers()));
 
-        $topicConf = new TopicConf();
-        $conf->setDefaultTopicConf($topicConf);
-
-        $consumer = new KafkaConsumer($conf);
+        $consumer = $this->consumer = new KafkaConsumer($conf);
         $consumer->subscribe($this->config->getTopic());
 
         $interval = (int)($this->config->getInterval() * 1000000);
+
         $this->started = true;
         while ($this->started) {
-            $message = $consumer->consume(10 * 1000);
+            $message = $consumer->consume(5 * 1000);
             switch ($message->err) {
                 case RD_KAFKA_RESP_ERR_NO_ERROR:
                     $this->messages[] = $message;
@@ -113,7 +99,7 @@ class RdKafkaConsumer extends LongLangConsumer
         if ($message) {
             $headers = [];
             foreach ($message->headers ?? [] as $key => $value) {
-                $headers[] = (new RecordHeader())->setHeaderKey($key)->setValue($value);
+                $headers[] = (new RecordHeader())->setKey($key)->setValue($value);
             }
 
             $message = new ConsumeMessage(
@@ -128,26 +114,7 @@ class RdKafkaConsumer extends LongLangConsumer
         return $message;
     }
 
-    private function getSaslInfo(): ?array
+    public function ack(ConsumeMessage $message)
     {
-        $config = $this->getConfig()->getSasl();
-        if (empty($config['type'])) {
-            return null;
-        }
-
-        $class = new $config['type']($this->getConfig());
-        if (!$class instanceof SaslInterface) {
-            return null;
-        }
-
-        if (empty($config['username']) || empty($config['password'])) {
-            throw new KafkaErrorException('sasl not found auth info');
-        }
-
-        return [
-            'mechanisms' => $class->getName(),
-            'username'   => $config['username'],
-            'password'   => $config['password'],
-        ];
     }
 }

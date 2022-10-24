@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace PeibinLaravel\Kafka;
 
 use Illuminate\Support\ServiceProvider;
-use longlang\phpkafka\Consumer\Consumer as LongLangConsumer;
-use PeibinLaravel\Kafka\Consumer\RdKafkaConsumer;
+use PeibinLaravel\Kafka\Consumer\Consumer as ConsumerInstance;
+use PeibinLaravel\Kafka\Contracts\ConsumerInterface;
+use PeibinLaravel\Kafka\Contracts\ProducerInterface;
 use PeibinLaravel\Kafka\Listeners\AfterWorkerExitListener;
 use PeibinLaravel\Kafka\Listeners\BeforeMainServerStartListener;
+use PeibinLaravel\Kafka\Producer\Producer as ProducerInstance;
 use PeibinLaravel\SwooleEvent\Events\BeforeMainServerStart;
 use PeibinLaravel\SwooleEvent\Events\OnWorkerStop;
 use PeibinLaravel\Utils\Providers\RegisterProviderConfig;
@@ -23,7 +25,8 @@ class KafkaServiceProvider extends ServiceProvider
 
         return [
             'dependencies' => [
-                LongLangConsumer::class => RdKafkaConsumer::class,
+                ProducerInterface::class => ProducerInstance::class,
+                ConsumerInterface::class => ConsumerInstance::class,
             ],
             'listeners'    => [
                 BeforeMainServerStart::class => [
