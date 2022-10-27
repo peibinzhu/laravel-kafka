@@ -97,6 +97,7 @@ class Producer
 
     public function close(): void
     {
+        $this->chan?->close();
         $this->producer?->close();
     }
 
@@ -118,7 +119,7 @@ class Producer
                     try {
                         $closure->call($this);
                     } catch (Throwable) {
-                        $this->producer->close();
+                        $this->producer?->close();
                         break;
                     }
                 }
@@ -126,6 +127,12 @@ class Producer
 
             $this->chan->close();
             $this->chan = null;
+        });
+
+        $that = $this;
+        Coroutine::defer(function () use ($that) {
+            $that->chan?->close();
+            $that->chan = null;
         });
     }
 

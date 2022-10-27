@@ -21,10 +21,9 @@ class KafkaServiceProvider extends ServiceProvider
 
     public function __invoke(): array
     {
-        $this->app->singleton(Producer::class);
-
         return [
             'dependencies' => [
+                Producer::class          => Producer::class,
                 ProducerInterface::class => ProducerInstance::class,
                 ConsumerInterface::class => ConsumerInstance::class,
             ],
