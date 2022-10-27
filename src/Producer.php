@@ -131,7 +131,7 @@ class Producer
 
         // If using the laravel/octane component, close the channel after the request ends.
         // Solve the problem of not releasing file handles.
-        if ((bool)env('LARAVEL_OCTANE', 0)) {
+        if (env('LARAVEL_OCTANE')) {
             $that = $this;
             Coroutine::defer(function () use ($that) {
                 $that->chan?->close();
