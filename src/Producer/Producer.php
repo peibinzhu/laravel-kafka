@@ -62,7 +62,12 @@ class Producer implements ProducerInterface
     public function close()
     {
         $this->topics = [];
-        $this->producer->flush(10 * 1000);
+        for ($flushRetries = 0; $flushRetries < 10; $flushRetries++) {
+            $result = $this->producer->flush(10000);
+            if (RD_KAFKA_RESP_ERR_NO_ERROR === $result) {
+                break;
+            }
+        }
     }
 
     protected function getProducerTopic(string $topicName): ProducerTopic

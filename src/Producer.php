@@ -135,7 +135,7 @@ class Producer
             $that = $this;
             Coroutine::defer(function () use ($that) {
                 $that->chan?->close();
-                $that->chan = null;
+                $that->producer?->close();
             });
         }
     }
