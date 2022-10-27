@@ -129,11 +129,15 @@ class Producer
             $this->chan = null;
         });
 
-        $that = $this;
-        Coroutine::defer(function () use ($that) {
-            $that->chan?->close();
-            $that->chan = null;
-        });
+        // If using the laravel/octane component, close the channel after the request ends.
+        // Solve the problem of not releasing file handles.
+        if ((bool)env('LARAVEL_OCTANE', 0)) {
+            $that = $this;
+            Coroutine::defer(function () use ($that) {
+                $that->chan?->close();
+                $that->chan = null;
+            });
+        }
     }
 
     private function makeProducer(): ProducerInterface
