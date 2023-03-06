@@ -19,7 +19,7 @@
     "peibin/laravel-coordinator": "^1.0",
     "peibin/laravel-di": "^1.5",
     "peibin/laravel-process": "^1.2",
-    "peibin/laravel-utils": "^1.6"
+    "peibin/laravel-provider-config": "^1.0"
   },
   "autoload": {
     "psr-4": {

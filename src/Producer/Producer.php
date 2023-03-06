@@ -26,8 +26,10 @@ class Producer implements ProducerInterface
             $conf->set($name, $value);
         }
 
-        $this->producer = new RdKafkaProducer($conf);
-        $this->producer->addBrokers(implode(',', $this->config->getBootstrapServers()));
+        if ($bootstrapServers = $this->config->getBootstrapServers()) {
+            $this->producer = new RdKafkaProducer($conf);
+            $this->producer->addBrokers(implode(',', $bootstrapServers));
+        }
     }
 
     public function send(

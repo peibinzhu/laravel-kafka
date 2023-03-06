@@ -11,20 +11,19 @@ use PeibinLaravel\Kafka\Contracts\ProducerInterface;
 use PeibinLaravel\Kafka\Listeners\AfterWorkerExitListener;
 use PeibinLaravel\Kafka\Listeners\BeforeMainServerStartListener;
 use PeibinLaravel\Kafka\Producer\Producer as ProducerInstance;
+use PeibinLaravel\ProviderConfig\Contracts\ProviderConfigInterface;
 use PeibinLaravel\SwooleEvent\Events\BeforeMainServerStart;
 use PeibinLaravel\SwooleEvent\Events\OnWorkerStop;
-use PeibinLaravel\Utils\Providers\RegisterProviderConfig;
 
-class KafkaServiceProvider extends ServiceProvider
+class KafkaServiceProvider extends ServiceProvider implements ProviderConfigInterface
 {
-    use RegisterProviderConfig;
-
     public function __invoke(): array
     {
+        $this->app->bind(ProducerInterface::class, ProducerInstance::class);
+
         return [
             'dependencies' => [
                 Producer::class          => Producer::class,
-                ProducerInterface::class => ProducerInstance::class,
                 ConsumerInterface::class => ConsumerInstance::class,
             ],
             'listeners'    => [
