@@ -19,11 +19,10 @@ class KafkaServiceProvider extends ServiceProvider implements ProviderConfigInte
 {
     public function __invoke(): array
     {
-        $this->app->bind(ProducerInterface::class, ProducerInstance::class);
-
         return [
             'dependencies' => [
                 Producer::class          => Producer::class,
+                ProducerInterface::class => ProducerInstance::class,
                 ConsumerInterface::class => ConsumerInstance::class,
             ],
             'listeners'    => [
