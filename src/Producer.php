@@ -6,13 +6,15 @@ namespace PeibinLaravel\Kafka;
 
 use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
-use PeibinLaravel\Coordinator\Channel;
+use PeibinLaravel\Coordinator\Constants;
+use PeibinLaravel\Coordinator\CoordinatorManager;
+use PeibinLaravel\Coroutine\Coroutine;
+use PeibinLaravel\Engine\Channel;
 use PeibinLaravel\Kafka\Contracts\ProducerInterface;
 use PeibinLaravel\Kafka\Exceptions\ConnectionClosedException;
 use PeibinLaravel\Kafka\Exceptions\TimeoutException;
 use PeibinLaravel\Kafka\Producer\ProduceMessage;
 use PeibinLaravel\Kafka\Producer\ProducerConfig;
-use Swoole\Coroutine;
 use Throwable;
 
 class Producer
@@ -112,7 +114,7 @@ class Producer
             while (true) {
                 $this->producer = $this->makeProducer();
                 while (true) {
-                    $closure = $this->chan->pop();
+                    $closure = $this->chan?->pop();
                     if (!$closure) {
                         break 2;
                     }
@@ -125,9 +127,15 @@ class Producer
                 }
             }
 
-            $this->chan->close();
+            $this->chan?->close();
             $this->chan = null;
             $this->producer?->close();
+        });
+
+        Coroutine::create(function () {
+            if (CoordinatorManager::until(Constants::WORKER_EXIT)->yield()) {
+                $this->chan?->close();
+            }
         });
     }
 

@@ -10,5 +10,7 @@ interface ConsumerInterface
 
     public function stop();
 
+    public function close();
+
     public function consume();
 }

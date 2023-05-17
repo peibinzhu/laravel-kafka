@@ -20,7 +20,7 @@ class CommonConfig
     /**
      * @param string|string[] $bootstrapServer
      */
-    public function setBootstrapServer($bootstrapServer): self
+    public function setBootstrapServer(array|string $bootstrapServer): self
     {
         return $this->setBootstrapServers($bootstrapServer);
     }
@@ -33,7 +33,7 @@ class CommonConfig
     /**
      * @param string|string[] $bootstrapServers
      */
-    public function setBootstrapServers(array | string $bootstrapServers): self
+    public function setBootstrapServers(array|string $bootstrapServers): self
     {
         if (is_string($bootstrapServers)) {
             $this->bootstrapServers = explode(',', $bootstrapServers);

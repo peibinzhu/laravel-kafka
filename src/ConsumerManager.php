@@ -8,6 +8,9 @@ use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Events\Dispatcher;
 use PeibinLaravel\Contracts\StdoutLoggerInterface;
+use PeibinLaravel\Coordinator\Constants;
+use PeibinLaravel\Coordinator\CoordinatorManager;
+use PeibinLaravel\Coroutine\Coroutine;
 use PeibinLaravel\Di\Annotation\AnnotationCollector;
 use PeibinLaravel\Kafka\Annotations\Consumer as ConsumerAnnotation;
 use PeibinLaravel\Kafka\Consumer\ConsumeMessage;
@@ -17,9 +20,10 @@ use PeibinLaravel\Kafka\Events\AfterConsume;
 use PeibinLaravel\Kafka\Events\BeforeConsume;
 use PeibinLaravel\Kafka\Events\FailToConsume;
 use PeibinLaravel\Kafka\Exceptions\InvalidConsumeResultException;
-use PeibinLaravel\Kafka\Exceptions\KafkaException;
 use PeibinLaravel\Process\AbstractProcess;
 use PeibinLaravel\Process\ProcessManager;
+
+use function PeibinLaravel\Coroutine\wait;
 
 class ConsumerManager
 {
@@ -84,54 +88,65 @@ class ConsumerManager
                 $consumerConfig = $this->getConsumerConfig();
                 $consumer = $this->consumer;
                 $consumeCallback = function (ConsumeMessage $message) use ($consumer, $consumerConfig) {
-                    $this->dispatcher && $this->dispatcher->dispatch(new BeforeConsume($consumer, $message));
+                    $config = $this->getConfig();
+                    wait(function () use ($consumer, $consumerConfig, $message) {
+                        $this->dispatcher && $this->dispatcher->dispatch(new BeforeConsume($consumer, $message));
 
-                    $result = $consumer->consume($message);
+                        $result = $consumer->consume($message);
 
-                    if (!$consumerConfig->getAutoCommit()) {
-                        if (!is_string($result)) {
-                            throw new InvalidConsumeResultException('The result is invalid.');
+                        if (!$consumerConfig->getAutoCommit()) {
+                            if (!is_string($result)) {
+                                throw new InvalidConsumeResultException('The result is invalid.');
+                            }
+
+                            if ($result === Result::ACK) {
+                                $message->getConsumer()->ack($message);
+                            }
+
+                            if ($result === Result::REQUEUE) {
+                                $this->producer->send(
+                                    $message->getTopic(),
+                                    $message->getValue(),
+                                    $message->getKey(),
+                                    $message->getHeaders()
+                                );
+                            }
                         }
 
-                        if ($result === Result::ACK) {
-                            $message->getConsumer()->ack($message);
-                        }
-
-                        if ($result === Result::REQUEUE) {
-                            $this->producer->send(
-                                $message->getTopic(),
-                                $message->getValue(),
-                                $message->getKey(),
-                                $message->getHeaders()
-                            );
-                        }
-                    }
-
-                    $this->dispatcher && $this->dispatcher->dispatch(
-                        new AfterConsume($consumer, $message, $result)
-                    );
+                        $this->dispatcher?->dispatch(new AfterConsume($consumer, $message, $result));
+                    }, $config['consume_timeout'] ?? -1);
                 };
 
-                $longLangConsumer = $this->container->make(Consumer::class, [
+                $kafkaConsumer = $this->container->make(Consumer::class, [
                     'config'          => $consumerConfig,
                     'consumeCallback' => $consumeCallback,
                 ]);
 
-                retry(
-                    3,
-                    function () use ($longLangConsumer) {
-                        try {
-                            $longLangConsumer->start();
-                        } catch (KafkaException $exception) {
-                            $this->stdoutLogger->error($exception->getMessage());
+                // stop consumer when worker exit
+                Coroutine::create(function () use ($kafkaConsumer) {
+                    CoordinatorManager::until(Constants::WORKER_EXIT)->yield();
+                    $kafkaConsumer->stop();
+                });
 
-                            $this->dispatcher && $this->dispatcher->dispatch(
-                                new FailToConsume($this->consumer, [], $exception)
-                            );
-                        }
-                    },
-                    10
-                );
+                while (true) {
+                    try {
+                        $kafkaConsumer->start();
+                    } catch (Throwable $exception) {
+                        $this->stdoutLogger->warning((string)$exception);
+                        $this->dispatcher?->dispatch(new FailToConsume($this->consumer, [], $exception));
+                    }
+
+                    if (CoordinatorManager::until(Constants::WORKER_EXIT)->yield(10)) {
+                        break;
+                    }
+                }
+
+                $kafkaConsumer->close();
+            }
+
+            public function getConfig(): array
+            {
+                return $this->config->get('kafka.' . $this->consumer->getPool());
             }
 
             public function getConsumerConfig(): ConsumerConfig

@@ -90,6 +90,11 @@ class Consumer implements ConsumerInterface
         $this->started = false;
     }
 
+    public function close(): void
+    {
+        $this->consumer?->close();
+    }
+
     public function consume(): ?ConsumeMessage
     {
         /** @var Message $message */
